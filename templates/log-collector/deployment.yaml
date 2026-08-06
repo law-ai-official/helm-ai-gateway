@@ -25,7 +25,8 @@ spec:
               cd /tmp &&
               npm init -y >/dev/null 2>&1 &&
               npm install --no-save postgres &&
-              exec node /app/app.js
+              cp /app/app.js /tmp/app.js &&
+              exec node /tmp/app.js
           ports:
             - { name: http, containerPort: 3000 }
           env:

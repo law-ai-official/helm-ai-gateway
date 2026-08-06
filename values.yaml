@@ -75,7 +75,7 @@ newapi:
 librechat:
   enabled: true
   image:
-    repository: freedomofpress/librechat
+    repository: ghcr.io/freedomofpress/librechat
     tag: "latest"
     pullPolicy: IfNotPresent
   service:
