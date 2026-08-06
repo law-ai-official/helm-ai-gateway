@@ -68,7 +68,7 @@ newapi:
   service:
     nodePort:
       enabled: true
-      port: 30810
+      port: 31800
   resources:
     requests: { cpu: 100m, memory: 256Mi }
 
