@@ -1,46 +1,78 @@
-# law-router
+# helm-ai-gateway
 
-独立的中转 + 聊天项目。和 PAAS_Server 无关。
+Helm chart for the AI gateway stack — Kong, NewAPI, LibreChat, Postgres, MongoDB in one release.
 
-提供：
-- **NewAPI** — 公开的 LLM API 中转服务器（`/v1/*`）
-- **Kong Gateway** — 公共入口，路由 + 记录所有聊天流量
-- **Postgres** — 独立数据库（NewAPI + chat_log 日志）
-- (可选) **LibreChat** — 聊天 UI
+## What it deploys
 
-所有聊天内容（用户输入 + AI 生成）都会通过 Kong 的 http-log 插件记录到 `chat_log` 数据库。
+- **Kong Gateway** (DB-less) — public API entry point, routes `/v1/*` to NewAPI and `/chat/*` to LibreChat
+- **NewAPI** — LLM API server (exposed publicly via Kong)
+- **LibreChat** — chat UI (exposed publicly via Kong)
+- **Postgres** — independent database for NewAPI + Kong chat logs (logical DBs: `newapi`, `chat_log`)
+- **MongoDB** — independent database for LibreChat (its native store)
+- **Log collector** — tiny Node.js service that receives Kong's http-log POSTs and writes chat history to the `chat_log` database
 
-## 项目结构
-
-```
-law-router/
-├── helm/                 # Helm chart（部署清单）
-│   ├── Chart.yaml
-│   ├── values.yaml
-│   ├── files/            # log-collector 源码
-│   └── templates/        # k8s 资源模板
-├── docs/                 # 设计文档、架构说明
-├── scripts/              # 运维脚本（部署、测试辅助）
-├── tests/                # e2e / 集成测试
-└── .mcp.json             # SSH MCP 配置（远程 k3s）
-```
-
-## 部署
-
-通过 ArgoCD 管理（chart 仓库：`law-ai-official/helm-ai-gateway`）：
+## Install
 
 ```bash
-kubectl apply -f apps/helm-ai-gateway.yaml
+helm install ai-gateway ./helm-ai-gateway -n ai-gateway --create-namespace
 ```
 
-或本地直接部署：
+## Upgrade
 
 ```bash
-helm install ai-gateway ./helm -n ai-gateway --create-namespace
+helm upgrade ai-gateway ./helm-ai-gateway -n ai-gateway
 ```
 
-## 访问
+## Uninstall
 
-- Kong Gateway（公开入口）：`http://23.144.68.246:30080`
-- NewAPI 管理后台：`http://23.144.68.246:31800`
-- 聊天 API：`http://23.144.68.246:30080/v1/chat/completions`
+```bash
+helm uninstall ai-gateway -n ai-gateway
+```
+
+## Values
+
+See `values.yaml` for the full list. Key sections:
+
+- `global` — namespace, storageClass, labels
+- `postgres` — Postgres StatefulSet (creates `newapi` + `chat_log` DBs)
+- `mongodb` — MongoDB StatefulSet (LibreChat's native store)
+- `newapi` — NewAPI Deployment + embedded Redis
+- `librechat` — LibreChat Deployment
+- `kong` — Kong Deployment (DB-less, declarative config)
+- `logCollector` — Log collector Deployment
+
+## Architecture
+
+```
+                    internet
+                       │
+                       ▼
+            ┌────────────────────┐
+            │   Kong Gateway     │  ← public entry (NodePort 30080/30443)
+            │   (DB-less)        │
+            └──┬─────────────┬───┘
+               │ /v1/*       │ /chat/*
+               ▼             ▼
+        ┌───────────┐   ┌───────────┐
+        │  NewAPI   │   │ LibreChat │
+        │           │   │           │
+        └─────┬─────┘   └─────┬─────┘
+              │               │
+              ▼               ▼
+        ┌───────────┐   ┌───────────┐
+        │ Postgres  │   │  MongoDB  │
+        │ (newapi + │   │(librechat)│
+        │  chat_log)│   │           │
+        └───────────┘   └───────────┘
+
+   Kong logs every request+response body → chat_log DB (via log-collector)
+```
+
+## Development
+
+For local dev, disable NodePort and use `kubectl port-forward`:
+
+```bash
+kubectl -n ai-gateway port-forward svc/kong 8080:8000
+curl http://localhost:8080/v1/models
+```

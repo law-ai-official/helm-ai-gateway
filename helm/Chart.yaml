@@ -1,9 +1,0 @@
-apiVersion: v2
-name: helm-ai-gateway
-description: AI Gateway stack — Kong, NewAPI, LibreChat, Postgres, MongoDB in one release.
-type: application
-version: 0.1.0
-appVersion: "main"
-kubeVersion: ">=1.24.0-0"
-maintainers:
-  - name: FindDataTechnology
