@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "ssh-mcp-server": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "@fangjunjie/ssh-mcp-server",
+        "--host", "23.144.68.246",
+        "--port", "22",
+        "--username", "root",
+        "--password", "zjnwNGFT1425"
+      ]
+    }
+  }
+}

@@ -1,0 +1,24 @@
+# macOS
+.DS_Store
+
+# Editor
+.vscode/
+.idea/
+*.swp
+
+# Secrets (不要提交真实密钥)
+.env
+.env.local
+*secret*.yaml
+secrets/
+values-prod.yaml
+
+# Helm
+helm/**/*.tgz
+
+# Node
+node_modules/
+npm-debug.log
+
+# Test
+tests/**/output/

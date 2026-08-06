@@ -1,0 +1,45 @@
+{{- if .Values.logCollector.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: log-collector
+  namespace: {{ include "ai-gateway.namespace" . }}
+  labels: {{- include "ai-gateway.labels" . | nindent 4 }}
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: {{- include "ai-gateway.selectorLabels" (dict "root" . "name" "log-collector") | nindent 6 }}
+  template:
+    metadata:
+      labels: {{- include "ai-gateway.selectorLabels" (dict "root" . "name" "log-collector") | nindent 8 }}
+    spec:
+      containers:
+        - name: log-collector
+          image: "{{ .Values.logCollector.image.repository }}:{{ .Values.logCollector.image.tag }}"
+          imagePullPolicy: {{ .Values.logCollector.image.pullPolicy }}
+          # ponytail: install postgres.js on first start (no image build needed).
+          command: ["sh", "-c"]
+          args:
+            - |
+              cd /tmp &&
+              npm init -y >/dev/null 2>&1 &&
+              npm install --no-save postgres &&
+              cp /app/app.js /tmp/app.js &&
+              exec node /tmp/app.js
+          ports:
+            - { name: http, containerPort: 3000 }
+          env:
+            - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: log-collector-secret, key: DATABASE_URL } } }
+          readinessProbe:
+            httpGet: { path: /health, port: 3000 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          volumeMounts:
+            - { name: app, mountPath: /app }
+          resources: {{- toYaml .Values.logCollector.resources | nindent 12 }}
+      volumes:
+        - name: app
+          configMap:
+            name: log-collector-app
+{{- end }}
