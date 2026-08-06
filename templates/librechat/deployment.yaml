@@ -25,6 +25,7 @@ spec:
             - { name: JWT_SECRET,   valueFrom: { secretKeyRef: { name: librechat-secret, key: JWT_SECRET } } }
             - { name: CREDS_KEY,    valueFrom: { secretKeyRef: { name: librechat-secret, key: CREDS_KEY } } }
             - { name: PORT,         value: "3080" }
+            - { name: ALLOW_REGISTRATION, value: "true" }
           readinessProbe:
             httpGet: { path: /, port: 3080 }
             initialDelaySeconds: 30

@@ -8,8 +8,11 @@
 
 # Real secrets (not helm templates)
 .env
+.env.*
 .env.local
 values-prod.yaml
+ssh-config.json
+
 
 # Node
 node_modules/
