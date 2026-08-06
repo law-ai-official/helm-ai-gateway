@@ -67,7 +67,7 @@ newapi:
       requests: { cpu: 50m, memory: 64Mi }
   service:
     nodePort:
-      enabled: false
+      enabled: true
       port: 30800
   resources:
     requests: { cpu: 100m, memory: 256Mi }
