@@ -24,7 +24,7 @@ spec:
             - { name: MONGO_URI,    valueFrom: { secretKeyRef: { name: librechat-secret, key: MONGO_URI } } }
             - { name: JWT_SECRET,   valueFrom: { secretKeyRef: { name: librechat-secret, key: JWT_SECRET } } }
             - { name: CREDS_KEY,    valueFrom: { secretKeyRef: { name: librechat-secret, key: CREDS_KEY } } }
-            - { name: REFRESH_TOKEN_SECRET, valueFrom: { secretKeyRef: { name: librechat-secret, key: REFRESH_TOKEN_SECRET } } }
+            - { name: JWT_REFRESH_SECRET, valueFrom: { secretKeyRef: { name: librechat-secret, key: JWT_REFRESH_SECRET } } }
             - { name: PORT,         value: "3080" }
             - { name: ALLOW_REGISTRATION, value: "true" }
           readinessProbe:
