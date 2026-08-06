@@ -97,8 +97,10 @@ kong:
       enabled: true
       httpPort: 30080
       httpsPort: 30443
+  # 512Mi: the body-capture plugin base64-encodes large/binary bodies in memory
+  # (multipart uploads) before forwarding, ~doubling the working set per request.
   resources:
-    requests: { cpu: 100m, memory: 256Mi }
+    requests: { cpu: 100m, memory: 512Mi }
 
 logCollector:
   enabled: true

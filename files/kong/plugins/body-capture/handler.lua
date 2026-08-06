@@ -55,15 +55,25 @@ function BodyCapture:log(conf)
 
   local payload = {
     route     = { name = route and route.name or nil },
-    request   = { method = kong.request.get_method(), uri = kong.request.get_path(), body = req_body },
-    response  = { status = kong.response.get_status(), body = resp_body },
+    request   = { method = kong.request.get_method(), uri = kong.request.get_path(),
+                  content_type = kong.request.get_header("Content-Type"), body = req_body },
+    response  = { status = kong.response.get_status(),
+                  content_type = kong.response.get_header("Content-Type"), body = resp_body },
     latencies = { request = math.floor((ngx.now() - start) * 1000) },
   }
 
   local json, err = cjson.encode(payload)
   if not json then
-    kong.log.err("body-capture: json encode failed: ", err)
-    return
+    -- Binary bodies (e.g. multipart file uploads) contain non-UTF-8 bytes that
+    -- cjson refuses to encode. Fall back to base64 so the bytes survive transit;
+    -- log-collector decodes via the body_b64 flag.
+    if req_body  then payload.request.body  = ngx.encode_base64(req_body);  payload.request.body_b64  = true end
+    if resp_body then payload.response.body = ngx.encode_base64(resp_body); payload.response.body_b64 = true end
+    json, err = cjson.encode(payload)
+    if not json then
+      kong.log.err("body-capture: json encode failed (even after base64): ", err)
+      return
+    end
   end
 
   -- Fire-and-forget: deliver in a timer so the client response is never delayed.

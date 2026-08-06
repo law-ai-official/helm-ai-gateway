@@ -1,23 +1,25 @@
 // Log collector - receives POSTs from Kong's body-capture plugin (full request +
-// response bodies), offloads large inline payloads (base64 images/files) to
-// MinIO, and writes the rest to the chat_log DB.
+// response bodies), offloads large inline payloads to MinIO, writes the rest to DB.
 //
-// Flow per request:
-//   1. Parse request_body / response_body as JSON (skip if not JSON, e.g. SSE).
-//   2. Recursively walk for `data:` URIs above THRESHOLD; upload each to MinIO
-//      and replace the string with `minio://<bucket>/<key>`.
-//   3. Store the (now small) bodies in chat_logs.
+// Per request:
+//   - If body_b64 flag is set, base64-decode first (binary bodies, e.g. multipart).
+//   - If content-type is multipart/form-data: parse with busboy, upload every file
+//     part to MinIO, store a JSON description ({_multipart, fields, files[]}) with
+//     minio:// refs. Text fields are kept inline.
+//   - Else if body is JSON: recursively walk for `data:` URIs > THRESHOLD, upload
+//     each to MinIO, replace with `minio://<bucket>/<key>`.
+//   - Else (SSE, plain text): store as-is.
 //
-// Bodies are TEXT (not jsonb): SSE streams and replaced references are not
-// JSON objects. Cast to jsonb when querying.
-// ponytail: ~110 lines, no framework. Runs on node:22-alpine via ConfigMap mount.
+// Bodies are TEXT (not jsonb): SSE and multipart descriptions aren't JSON objects.
+// ponytail: ~150 lines. Runs on node:22-alpine via ConfigMap mount.
 import http from 'node:http';
 import crypto from 'node:crypto';
 import postgres from 'postgres';
 import { createRequire } from 'module';
-// `minio` ships as CommonJS with no ESM default export; load via createRequire.
+// `minio` and `busboy` ship as CommonJS with no ESM default export; load via require.
 const require = createRequire(import.meta.url);
 const Minio = require('minio');
+const Busboy = require('busboy');
 
 const sql = postgres(process.env.DATABASE_URL);
 
@@ -48,8 +50,6 @@ await sql`
     latency       int
   )
 `;
-
-// Migrate legacy jsonb columns -> text (idempotent; safe to re-run on every boot).
 const jsonbCols = await sql`
   SELECT column_name FROM information_schema.columns
   WHERE table_name = 'chat_logs' AND data_type = 'jsonb'
@@ -58,32 +58,31 @@ for (const { column_name } of jsonbCols) {
   await sql.unsafe(`ALTER TABLE chat_logs ALTER COLUMN ${column_name} TYPE text USING ${column_name}::text`);
 }
 
-// Only offload data URIs larger than this; tiny inline assets stay in the row.
+// Only offload data URIs larger than this (tiny inline assets stay in the row).
 const THRESHOLD = 4096;
-
 const MIME_EXT = {
   'image/png': 'png', 'image/jpeg': 'jpg', 'image/gif': 'gif', 'image/webp': 'webp',
   'application/pdf': 'pdf', 'audio/mpeg': 'mp3', 'audio/wav': 'wav',
   'text/plain': 'txt', 'application/octet-stream': 'bin',
 };
-
 let assetSeq = 0;
+
+// Upload a Buffer to MinIO; return a minio:// ref.
+async function uploadBuffer(buf, contentType, group, filename) {
+  const ext = MIME_EXT[contentType] || (filename && filename.split('.').pop()) || 'bin';
+  const safe = (filename || `asset-${assetSeq++}`).replace(/[^a-zA-Z0-9._-]/g, '_');
+  const key = `${group}/${Date.now()}-${assetSeq++}-${safe}`;
+  await minio.putObject(BUCKET, key, buf, buf.length, { 'Content-Type': contentType || 'application/octet-stream' });
+  return `minio://${BUCKET}/${key}`;
+}
 
 // Upload a single `data:<mime>;base64,<...>` URI to MinIO; return a minio:// ref.
 async function uploadDataUri(dataUri, group) {
   const m = dataUri.match(/^data:([^;]+);base64,(.*)$/s);
-  if (!m) return dataUri;                       // not a base64 data URI; leave as-is
-  const contentType = m[1];
+  if (!m) return dataUri;
   const buf = Buffer.from(m[2], 'base64');
-  const ext = MIME_EXT[contentType] || 'bin';
-  const key = `${group}/${Date.now()}-${assetSeq++}.${ext}`;
-  try {
-    await minio.putObject(BUCKET, key, buf, buf.length, { 'Content-Type': contentType });
-    return `minio://${BUCKET}/${key}`;
-  } catch (e) {
-    console.error('minio upload failed, keeping inline:', e.message);
-    return dataUri;                             // fall back so logging still succeeds
-  }
+  try { return await uploadBuffer(buf, m[1], group, `inline.${MIME_EXT[m[1]] || 'bin'}`); }
+  catch (e) { console.error('minio upload failed, keeping inline:', e.message); return dataUri; }
 }
 
 // Recursively replace large data: URIs with minio:// refs. Mutates `obj` in place.
@@ -102,18 +101,63 @@ async function offloadDataUris(obj, group) {
   return obj;
 }
 
-// If `body` is a JSON string, offload its data URIs and return the rewritten string.
-async function processBody(body, group) {
-  if (typeof body !== 'string' || body.length === 0) return body;
-  const trimmed = body.trimStart();
-  if (!trimmed.startsWith('{') && !trimmed.startsWith('[')) return body;  // not JSON (SSE/multipart)
-  try {
-    const parsed = JSON.parse(body);
-    await offloadDataUris(parsed, group);
-    return JSON.stringify(parsed);
-  } catch {
-    return body;  // not valid JSON; store as-is
+// Parse a multipart body: upload each file part to MinIO, keep text fields inline.
+// Returns a JSON string describing the parts.
+function processMultipart(bodyBuf, contentType, group) {
+  return new Promise((resolve) => {
+    const bb = Busboy({ headers: { 'content-type': contentType } });
+    const fields = {};
+    const files = [];
+    const uploads = [];
+    bb.on('field', (name, val) => { fields[name] = val; });
+    bb.on('file', (name, stream, info) => {
+      const chunks = [];
+      stream.on('data', c => chunks.push(c));
+      stream.on('end', () => {
+        uploads.push((async () => {
+          const buf = Buffer.concat(chunks);
+          try {
+            const ref = await uploadBuffer(buf, info.mimeType, group, info.filename);
+            files.push({ name, ref, filename: info.filename, content_type: info.mimeType, size: buf.length });
+          } catch (e) {
+            files.push({ name, error: e.message, filename: info.filename, content_type: info.mimeType, size: buf.length });
+          }
+        })());
+      });
+    });
+    bb.on('finish', async () => {
+      await Promise.all(uploads);
+      resolve(JSON.stringify({ _multipart: true, fields, files }));
+    });
+    bb.on('error', () => resolve(bodyBuf.toString('utf8')));   // fall back to raw text
+    bb.end(bodyBuf);
+  });
+}
+
+// Process one body (string or base64 string) -> small string for DB storage.
+async function processBody(body, bodyB64, contentType, group) {
+  if (!body) return body;
+  let raw;
+  if (bodyB64) {
+    raw = Buffer.from(body, 'base64');                // binary-safe decode
+  } else {
+    raw = body;                                         // already a text string
   }
+  // Multipart file upload: extract files to MinIO.
+  if (contentType && contentType.startsWith('multipart/form-data') && Buffer.isBuffer(raw)) {
+    return await processMultipart(raw, contentType, group);
+  }
+  // JSON: offload large data: URIs.
+  if (typeof raw === 'string') {
+    const t = raw.trimStart();
+    if (t.startsWith('{') || t.startsWith('[')) {
+      try { const p = JSON.parse(raw); await offloadDataUris(p, group); return JSON.stringify(p); }
+      catch { return raw; }
+    }
+    return raw;
+  }
+  // Binary but not multipart (rare): store as base64.
+  return raw.toString('base64');
 }
 
 const server = http.createServer(async (req, res) => {
@@ -130,8 +174,8 @@ const server = http.createServer(async (req, res) => {
     try {
       const p = JSON.parse(body);
       const group = `chat-assets/${crypto.randomUUID()}`;
-      const reqStored = await processBody(p.request?.body, group);
-      const respStored = await processBody(p.response?.body, group);
+      const reqStored = await processBody(p.request?.body, p.request?.body_b64, p.request?.content_type, group);
+      const respStored = await processBody(p.response?.body, p.response?.body_b64, p.response?.content_type, group);
       await sql`
         INSERT INTO chat_logs (route, method, request_body, response_body, status_code, latency)
         VALUES (
