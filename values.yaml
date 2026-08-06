@@ -121,9 +121,25 @@ logCollector:
     requests: { cpu: 50m, memory: 128Mi }
 
 # Object store for offloading large inline payloads (base64 images/files) from
-# chat bodies. Reuses the law-craw-web namespace MinIO by default; for a
-# dedicated store, deploy MinIO into ai-gateway and repoint these.
+# chat bodies. Can reuse an external MinIO (set deploy.enabled: false and point
+# endpoint to the external service) or deploy a dedicated in-cluster MinIO
+# (set deploy.enabled: true).
 minio:
+  # Deploy an in-cluster MinIO instance. When true, endpoint defaults to "minio"
+  # (the in-cluster service name). When false, point endpoint to your external MinIO.
+  deploy:
+    enabled: false
+    image:
+      repository: minio/minio
+      tag: "latest"
+      pullPolicy: IfNotPresent
+    persistence:
+      size: 10Gi
+    resources:
+      requests: { cpu: 100m, memory: 256Mi }
+  # Connection settings used by log-collector. When deploy.enabled: true, override
+  # endpoint to "minio" (the in-cluster service). Default points to external MinIO
+  # in law-craw-web namespace for backward compatibility.
   endpoint: minio.law-craw-web.svc.cluster.local
   port: 9000
   bucket: chat-assets
