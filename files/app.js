@@ -14,7 +14,10 @@
 import http from 'node:http';
 import crypto from 'node:crypto';
 import postgres from 'postgres';
-import Minio from 'minio';
+import { createRequire } from 'module';
+// `minio` ships as CommonJS with no ESM default export; load via createRequire.
+const require = createRequire(import.meta.url);
+const Minio = require('minio');
 
 const sql = postgres(process.env.DATABASE_URL);
 
