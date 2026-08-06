@@ -173,12 +173,6 @@ const server = http.createServer(async (req, res) => {
   req.on('end', async () => {
     try {
       const p = JSON.parse(body);
-      // DEBUG: see what the plugin actually sent for each request.
-      console.log('LOG_PAYLOAD:', JSON.stringify({
-        reqB64: p.request?.body_b64, reqCt: p.request?.content_type, reqLen: p.request?.body?.length,
-        respB64: p.response?.body_b64, respCt: p.response?.content_type, respLen: p.response?.body?.length,
-        status: p.response?.status,
-      }));
       const group = `chat-assets/${crypto.randomUUID()}`;
       const reqStored = await processBody(p.request?.body, p.request?.body_b64, p.request?.content_type, group);
       const respStored = await processBody(p.response?.body, p.response?.body_b64, p.response?.content_type, group);
