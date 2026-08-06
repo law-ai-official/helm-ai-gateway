@@ -59,8 +59,10 @@ function BodyCapture:log(conf)
   -- transit intact. We can't rely on cjson failing: it may silently mangle
   -- non-UTF-8 bytes into a string with NULs, which then breaks the DB insert
   -- and can't be re-parsed on the collector side.
-  local req_b64  = req_body  and req_ct  and req_ct:find("multipart/form-data")  ~= nil
-  local resp_b64 = resp_body and resp_ct and resp_ct:find("multipart/form-data") ~= nil
+  -- NOTE: use plain=true (4th arg) so "-" is a literal dash, not a Lua pattern
+  -- quantifier -- otherwise "multipart/form-data" never matches.
+  local req_b64  = req_body  and req_ct  and req_ct:find("multipart/form-data", 1, true)  ~= nil
+  local resp_b64 = resp_body and resp_ct and resp_ct:find("multipart/form-data", 1, true) ~= nil
   local req_body_enc  = req_b64  and ngx.encode_base64(req_body)  or req_body
   local resp_body_enc = resp_b64 and ngx.encode_base64(resp_body) or resp_body
 
