@@ -1,0 +1,16 @@
+{{- if .Values.kong.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-body-capture-plugin
+  namespace: {{ include "ai-gateway.namespace" . }}
+  labels: {{- include "ai-gateway.labels" . | nindent 4 }}
+data:
+  # Custom Kong plugin (Lua) mounted into Kong's plugin path so it loads at
+  # startup via KONG_PLUGINS=bundled,body-capture. Captures request/response
+  # bodies and forwards them here for DB storage.
+  handler.lua: |
+{{ .Files.Get "files/kong/plugins/body-capture/handler.lua" | indent 4 }}
+  schema.lua: |
+{{ .Files.Get "files/kong/plugins/body-capture/schema.lua" | indent 4 }}
+{{- end }}

@@ -1,23 +1,37 @@
-// Log collector — receives POST from Kong's http-log plugin, writes to chat_log DB.
-// ponytail: ~50 lines, no framework. Runs on node:22-alpine via ConfigMap mount.
+// Log collector - receives POSTs from Kong's body-capture plugin (full request +
+// response bodies) and writes them to the chat_log DB.
+//
+// Bodies are stored as TEXT (not jsonb): chat completion responses are often SSE
+// streams, which are not valid JSON and would break a jsonb insert. Text stores
+// anything reliably; cast to jsonb when querying request bodies.
+// ponytail: ~60 lines, no framework. Runs on node:22-alpine via ConfigMap mount.
 import http from 'node:http';
 import postgres from 'postgres';
 
 const sql = postgres(process.env.DATABASE_URL);
 
-// Ensure the table exists on startup (idempotent).
 await sql`
   CREATE TABLE IF NOT EXISTS chat_logs (
     id            uuid PRIMARY KEY DEFAULT gen_random_uuid(),
     timestamp     timestamptz NOT NULL DEFAULT now(),
     route         text,
     method        text,
-    request_body  jsonb,
-    response_body jsonb,
+    request_body  text,
+    response_body text,
     status_code   int,
     latency       int
   )
 `;
+
+// Migrate legacy jsonb columns -> text (idempotent; safe to re-run on every boot).
+const jsonbCols = await sql`
+  SELECT column_name FROM information_schema.columns
+  WHERE table_name = 'chat_logs' AND data_type = 'jsonb'
+`;
+for (const { column_name } of jsonbCols) {
+  // column_name is a real column name from our own query above; safe to interpolate.
+  await sql.unsafe(`ALTER TABLE chat_logs ALTER COLUMN ${column_name} TYPE text USING ${column_name}::text`);
+}
 
 const server = http.createServer(async (req, res) => {
   // Health check endpoint for readiness probe.
@@ -37,28 +51,18 @@ const server = http.createServer(async (req, res) => {
   req.on('data', chunk => { body += chunk; });
   req.on('end', async () => {
     try {
-      const payload = JSON.parse(body);
-      // Debug: log payload keys to see what Kong sends.
-      console.log('=== PAYLOAD STRUCTURE ===');
-      console.log('Top-level keys:', Object.keys(payload));
-      console.log('Route name:', payload.route?.name);
-      console.log('Request keys:', payload.request ? Object.keys(payload.request).join(', ') : 'NONE');
-      console.log('Response keys:', payload.response ? Object.keys(payload.response).join(', ') : 'NONE');
-      console.log('Request.body type:', typeof payload.request?.body, '| value:', JSON.stringify(payload.request?.body).slice(0, 100));
-      console.log('Response.body type:', typeof payload.response?.body, '| value:', JSON.stringify(payload.response?.body).slice(0, 100));
-      console.log('================================');
-      // Kong's http-log plugin sends: { request, response, route, ... }
-      // request = { method, uri, headers, body }
-      // response = { status, headers, body }
+      const p = JSON.parse(body);
+      // Payload shape sent by the body-capture plugin:
+      //   { route:{name}, request:{method,uri,body}, response:{status,body}, latencies:{request} }
       await sql`
         INSERT INTO chat_logs (route, method, request_body, response_body, status_code, latency)
         VALUES (
-          ${payload.route?.name || null},
-          ${payload.request?.method || null},
-          ${payload.request?.body || null},
-          ${payload.response?.body || null},
-          ${payload.response?.status || null},
-          ${payload.latency?.request || null}
+          ${p.route?.name || null},
+          ${p.request?.method || null},
+          ${p.request?.body || null},
+          ${p.response?.body || null},
+          ${p.response?.status || null},
+          ${p.latencies?.request ?? p.latency?.request ?? null}
         )
       `;
       res.writeHead(200);

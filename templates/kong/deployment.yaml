@@ -26,12 +26,7 @@ spec:
             - { name: KONG_ADMIN_ACCESS_LOG,     value: /dev/stdout }
             - { name: KONG_PROXY_ERROR_LOG,      value: /dev/stderr }
             - { name: KONG_ADMIN_ERROR_LOG,      value: /dev/stderr }
-            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
-            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
-            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
-            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
-            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
-            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
+            - { name: KONG_PLUGINS,              value: "bundled,body-capture" }
           ports:
             - { name: http,  containerPort: 8000 }
             - { name: https, containerPort: 8443 }
@@ -42,9 +37,15 @@ spec:
             periodSeconds: 10
           volumeMounts:
             - { name: config, mountPath: /etc/kong }
+            # Mount the body-capture plugin Lua into Kong's plugin path; loaded via
+            # KONG_PLUGINS=bundled,body-capture. Read-only, like all ConfigMap mounts.
+            - { name: plugins, mountPath: /usr/local/share/lua/5.1/kong/plugins/body-capture }
           resources: {{- toYaml .Values.kong.resources | nindent 12 }}
       volumes:
         - name: config
           configMap:
             name: kong-config
+        - name: plugins
+          configMap:
+            name: kong-body-capture-plugin
 {{- end }}

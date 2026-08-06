@@ -20,16 +20,13 @@ data:
               - /v1
             strip_path: false
         plugins:
-          - name: http-log
+          # body-capture: custom plugin (mounted via kong-body-capture-plugin
+          # ConfigMap) that records full request + response bodies to the
+          # chat_log DB via log-collector. Replaces http-log, which only logs
+          # metadata and never the conversation content.
+          - name: body-capture
             config:
-              http_endpoint: http://log-collector:3000/logs
-              method: POST
-              content_type: application/json
-              queue:
-                max_batch_size: 1
-                max_coalescing_delay: 1
-                max_retry_time: 60
-                max_entries: 10000
+              max_body_size: 10485760
 
       - name: librechat
         url: http://librechat:3080
