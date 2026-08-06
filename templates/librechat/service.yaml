@@ -1,0 +1,22 @@
+{{- if .Values.librechat.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: librechat
+  namespace: {{ include "ai-gateway.namespace" . }}
+  labels: {{- include "ai-gateway.labels" . | nindent 4 }}
+spec:
+  {{- if .Values.librechat.service.nodePort.enabled }}
+  type: NodePort
+  {{- else }}
+  type: ClusterIP
+  {{- end }}
+  selector: {{- include "ai-gateway.selectorLabels" (dict "root" . "name" "librechat") | nindent 4 }}
+  ports:
+    - name: http
+      port: 3080
+      targetPort: http
+      {{- if .Values.librechat.service.nodePort.enabled }}
+      nodePort: {{ .Values.librechat.service.nodePort.port }}
+      {{- end }}
+{{- end }}

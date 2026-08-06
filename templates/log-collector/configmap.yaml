@@ -1,0 +1,12 @@
+{{- if .Values.logCollector.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: log-collector-app
+  namespace: {{ include "ai-gateway.namespace" . }}
+  labels: {{- include "ai-gateway.labels" . | nindent 4 }}
+data:
+  # The log-collector Node.js app. Mounted at /app/app.js and run via `node /app/app.js`.
+  app.js: |
+{{ .Files.Get "files/app.js" | indent 4 }}
+{{- end }}

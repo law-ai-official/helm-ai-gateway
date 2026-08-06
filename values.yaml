@@ -1,0 +1,114 @@
+# helm-ai-gateway - one release, one namespace, the AI gateway tier.
+# Dev-defaults ship inline (change-me-* placeholders); real secrets are injected
+# via ArgoCD `valuesObject` (apps/helm-ai-gateway.yaml, local-only). No subcharts.
+# ponytail: single-file values, no schema surprises.
+
+global:
+  # Target namespace for every workload. Chart does NOT create the namespace itself -
+  # let `helm install --create-namespace` or ArgoCD `CreateNamespace=true` do it.
+  namespace: ai-gateway
+
+  # Global labels merged into every rendered resource.
+  labels: {}
+
+  # Storage class for PVCs.
+  storageClass: local-path
+
+postgres:
+  enabled: true
+  image:
+    repository: postgres
+    tag: "16-alpine"
+    pullPolicy: IfNotPresent
+  auth:
+    username: app
+    password: "change-me-postgres"
+    # First-boot init script creates each named DB owned by `auth.username`. Idempotent
+    # (postgres skips initdb when PGDATA is non-empty).
+    databases:
+      - newapi
+      - chat_log
+  persistence:
+    size: 10Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+
+mongodb:
+  enabled: true
+  image:
+    repository: mongo
+    tag: "7"
+    pullPolicy: IfNotPresent
+  auth:
+    username: app
+    password: "change-me-mongo"
+    database: librechat
+  persistence:
+    size: 10Gi
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+
+newapi:
+  enabled: true
+  image:
+    repository: calciumion/new-api
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  # NewAPI needs redis for caching.
+  redis:
+    enabled: true
+    image:
+      repository: redis
+      tag: "7-alpine"
+      pullPolicy: IfNotPresent
+    auth:
+      password: "change-me-redis"
+    resources:
+      requests: { cpu: 50m, memory: 64Mi }
+  service:
+    nodePort:
+      enabled: false
+      port: 30800
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+
+librechat:
+  enabled: true
+  image:
+    repository: ghcr.io/librechat/librechat
+    tag: "latest"
+    pullPolicy: IfNotPresent
+  service:
+    nodePort:
+      enabled: false
+      port: 30801
+  resources:
+    requests: { cpu: 100m, memory: 512Mi }
+
+kong:
+  enabled: true
+  image:
+    repository: kong
+    tag: "3.8"
+    pullPolicy: IfNotPresent
+  # DB-less mode (declarative config via ConfigMap).
+  service:
+    nodePort:
+      enabled: true
+      httpPort: 30080
+      httpsPort: 30443
+  resources:
+    requests: { cpu: 100m, memory: 256Mi }
+
+logCollector:
+  enabled: true
+  image:
+    repository: node
+    tag: "22-alpine"
+    pullPolicy: IfNotPresent
+  service:
+    nodePort:
+      enabled: false
+      port: 30802
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }

@@ -1,0 +1,39 @@
+{{- if .Values.kong.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-config
+  namespace: {{ include "ai-gateway.namespace" . }}
+  labels: {{- include "ai-gateway.labels" . | nindent 4 }}
+data:
+  # Kong declarative config (DB-less mode). Defines services, routes, and plugins.
+  # Kong loads this on startup and watches for changes.
+  kong.yml: |
+    _format_version: "3.0"
+
+    services:
+      - name: newapi
+        url: http://newapi:3000
+        routes:
+          - name: newapi-route
+            paths:
+              - /v1
+            strip_path: false
+        plugins:
+          - name: http-log
+            config:
+              http_endpoint: http://log-collector:3000/logs
+              method: POST
+              content_type: application/json
+              flush_timeout: 1
+              retry_count: 3
+
+      - name: librechat
+        url: http://librechat:3080
+        routes:
+          - name: librechat-route
+            paths:
+              - /chat
+            strip_path: true
+        # No http-log on librechat — it self-logs to MongoDB natively.
+{{- end }}
