@@ -36,6 +36,7 @@ spec:
             - { name: MINIO_BUCKET, valueFrom: { secretKeyRef: { name: log-collector-secret, key: MINIO_BUCKET } } }
             - { name: MINIO_ACCESS_KEY, valueFrom: { secretKeyRef: { name: log-collector-secret, key: MINIO_ACCESS_KEY } } }
             - { name: MINIO_SECRET_KEY, valueFrom: { secretKeyRef: { name: log-collector-secret, key: MINIO_SECRET_KEY } } }
+            - { name: LOG_VIEWER_TOKEN, valueFrom: { secretKeyRef: { name: log-collector-secret, key: LOG_VIEWER_TOKEN } } }
           readinessProbe:
             httpGet: { path: /health, port: 3000 }
             initialDelaySeconds: 10

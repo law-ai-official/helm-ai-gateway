@@ -112,6 +112,9 @@ logCollector:
     nodePort:
       enabled: true
       port: 30802
+  # Shared secret gating the viewer UI + asset downloads (GET /, /log/*, /asset,
+  # /api/logs*). Empty = open (dev). Pass as ?token= or Authorization: Bearer.
+  viewerToken: "sk-logview-1e4c81eb4d9f589eac067cf5861885e3"
   resources:
     requests: { cpu: 50m, memory: 128Mi }
 
