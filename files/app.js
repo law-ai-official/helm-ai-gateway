@@ -20,6 +20,13 @@ await sql`
 `;
 
 const server = http.createServer(async (req, res) => {
+  // Health check endpoint for readiness probe.
+  if (req.method === 'GET' && (req.url === '/health' || req.url === '/')) {
+    res.writeHead(200);
+    res.end('OK');
+    return;
+  }
+
   if (req.method !== 'POST' || req.url !== '/logs') {
     res.writeHead(404);
     res.end('Not found');
