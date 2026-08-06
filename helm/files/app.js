@@ -39,9 +39,14 @@ const server = http.createServer(async (req, res) => {
     try {
       const payload = JSON.parse(body);
       // Debug: log payload keys to see what Kong sends.
-      console.log('Received log payload keys:', Object.keys(payload));
-      console.log('Request keys:', payload.request ? Object.keys(payload.request) : 'none');
-      console.log('Response keys:', payload.response ? Object.keys(payload.response) : 'none');
+      console.log('=== PAYLOAD STRUCTURE ===');
+      console.log('Top-level keys:', Object.keys(payload));
+      console.log('Route name:', payload.route?.name);
+      console.log('Request keys:', payload.request ? Object.keys(payload.request).join(', ') : 'NONE');
+      console.log('Response keys:', payload.response ? Object.keys(payload.response).join(', ') : 'NONE');
+      console.log('Request.body type:', typeof payload.request?.body, '| value:', JSON.stringify(payload.request?.body).slice(0, 100));
+      console.log('Response.body type:', typeof payload.response?.body, '| value:', JSON.stringify(payload.response?.body).slice(0, 100));
+      console.log('================================');
       // Kong's http-log plugin sends: { request, response, route, ... }
       // request = { method, uri, headers, body }
       // response = { status, headers, body }

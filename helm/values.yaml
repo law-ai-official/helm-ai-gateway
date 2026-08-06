@@ -73,14 +73,14 @@ newapi:
     requests: { cpu: 100m, memory: 256Mi }
 
 librechat:
-  enabled: false
+  enabled: true
   image:
-    repository: ghcr.io/freedomofpress/librechat
+    repository: ghcr.io/danny-avila/librechat
     tag: "latest"
     pullPolicy: IfNotPresent
   service:
     nodePort:
-      enabled: false
+      enabled: true
       port: 30801
   resources:
     requests: { cpu: 100m, memory: 512Mi }
@@ -108,7 +108,7 @@ logCollector:
     pullPolicy: IfNotPresent
   service:
     nodePort:
-      enabled: false
+      enabled: true
       port: 30802
   resources:
     requests: { cpu: 50m, memory: 128Mi }
