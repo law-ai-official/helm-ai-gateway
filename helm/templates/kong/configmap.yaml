@@ -25,6 +25,17 @@ data:
               http_endpoint: http://log-collector:3000/logs
               method: POST
               content_type: application/json
-              flush_timeout: 1
-              retry_count: 3
+              queue:
+                max_batch_size: 1
+                max_coalescing_delay: 1
+                max_retry_time: 60
+                max_entries: 10000
+
+      - name: librechat
+        url: http://librechat:3080
+        routes:
+          - name: librechat-route
+            paths:
+              - /chat
+            strip_path: true
 {{- end }}
