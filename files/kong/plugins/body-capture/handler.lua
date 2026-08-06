@@ -52,23 +52,32 @@ function BodyCapture:log(conf)
 
   local route = kong.router.get_route()
   local start = kong.ctx.shared.bc_start or ngx.now()
+  local req_ct = kong.request.get_header("Content-Type")
+  local resp_ct = kong.response.get_header("Content-Type")
+
+  -- Multipart bodies are binary; base64 them up front so they survive JSON
+  -- transit intact. We can't rely on cjson failing: it may silently mangle
+  -- non-UTF-8 bytes into a string with NULs, which then breaks the DB insert
+  -- and can't be re-parsed on the collector side.
+  local req_b64  = req_body  and req_ct  and req_ct:find("multipart/form-data")  ~= nil
+  local resp_b64 = resp_body and resp_ct and resp_ct:find("multipart/form-data") ~= nil
+  local req_body_enc  = req_b64  and ngx.encode_base64(req_body)  or req_body
+  local resp_body_enc = resp_b64 and ngx.encode_base64(resp_body) or resp_body
 
   local payload = {
     route     = { name = route and route.name or nil },
     request   = { method = kong.request.get_method(), uri = kong.request.get_path(),
-                  content_type = kong.request.get_header("Content-Type"), body = req_body },
+                  content_type = req_ct, body = req_body_enc, body_b64 = req_b64 },
     response  = { status = kong.response.get_status(),
-                  content_type = kong.response.get_header("Content-Type"), body = resp_body },
+                  content_type = resp_ct, body = resp_body_enc, body_b64 = resp_b64 },
     latencies = { request = math.floor((ngx.now() - start) * 1000) },
   }
 
   local json, err = cjson.encode(payload)
   if not json then
-    -- Binary bodies (e.g. multipart file uploads) contain non-UTF-8 bytes that
-    -- cjson refuses to encode. Fall back to base64 so the bytes survive transit;
-    -- log-collector decodes via the body_b64 flag.
-    if req_body  then payload.request.body  = ngx.encode_base64(req_body);  payload.request.body_b64  = true end
-    if resp_body then payload.response.body = ngx.encode_base64(resp_body); payload.response.body_b64 = true end
+    -- Some other binary body cjson can't encode; base64 anything not already.
+    if req_body_enc  and not req_b64  then payload.request.body  = ngx.encode_base64(req_body_enc);  payload.request.body_b64  = true end
+    if resp_body_enc and not resp_b64 then payload.response.body = ngx.encode_base64(resp_body_enc); payload.response.body_b64 = true end
     json, err = cjson.encode(payload)
     if not json then
       kong.log.err("body-capture: json encode failed (even after base64): ", err)

@@ -129,7 +129,7 @@ function processMultipart(bodyBuf, contentType, group) {
       await Promise.all(uploads);
       resolve(JSON.stringify({ _multipart: true, fields, files }));
     });
-    bb.on('error', () => resolve(bodyBuf.toString('utf8')));   // fall back to raw text
+    bb.on('error', (e) => resolve(JSON.stringify({ _multipart: true, error: e.message, fields, files })));
     bb.end(bodyBuf);
   });
 }
