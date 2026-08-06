@@ -27,13 +27,4 @@ data:
               content_type: application/json
               flush_timeout: 1
               retry_count: 3
-
-      - name: librechat
-        url: http://librechat:3080
-        routes:
-          - name: librechat-route
-            paths:
-              - /chat
-            strip_path: true
-        # No http-log on librechat — it self-logs to MongoDB natively.
 {{- end }}

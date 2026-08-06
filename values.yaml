@@ -73,7 +73,7 @@ newapi:
     requests: { cpu: 100m, memory: 256Mi }
 
 librechat:
-  enabled: true
+  enabled: false
   image:
     repository: ghcr.io/freedomofpress/librechat
     tag: "latest"
