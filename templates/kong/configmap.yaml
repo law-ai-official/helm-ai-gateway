@@ -26,7 +26,9 @@ data:
           # metadata and never the conversation content.
           - name: body-capture
             config:
-              max_body_size: 10485760
+              # 50MB so large base64 images reach log-collector intact; the
+              # collector then offloads them to MinIO and stores only a reference.
+              max_body_size: 52428800
 
       - name: librechat
         url: http://librechat:3080

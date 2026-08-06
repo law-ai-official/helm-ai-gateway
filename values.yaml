@@ -112,3 +112,13 @@ logCollector:
       port: 30802
   resources:
     requests: { cpu: 50m, memory: 128Mi }
+
+# Object store for offloading large inline payloads (base64 images/files) from
+# chat bodies. Reuses the law-craw-web namespace MinIO by default; for a
+# dedicated store, deploy MinIO into ai-gateway and repoint these.
+minio:
+  endpoint: minio.law-craw-web.svc.cluster.local
+  port: 9000
+  bucket: chat-assets
+  accessKey: minioadmin
+  secretKey: "QXqpAKgT04Ak2MyKWC2L"

@@ -24,13 +24,18 @@ spec:
             - |
               cd /tmp &&
               npm init -y >/dev/null 2>&1 &&
-              npm install --no-save postgres &&
+              npm install --no-save postgres minio &&
               cp /app/app.js /tmp/app.js &&
               exec node /tmp/app.js
           ports:
             - { name: http, containerPort: 3000 }
           env:
             - { name: DATABASE_URL, valueFrom: { secretKeyRef: { name: log-collector-secret, key: DATABASE_URL } } }
+            - { name: MINIO_ENDPOINT, valueFrom: { secretKeyRef: { name: log-collector-secret, key: MINIO_ENDPOINT } } }
+            - { name: MINIO_PORT, valueFrom: { secretKeyRef: { name: log-collector-secret, key: MINIO_PORT } } }
+            - { name: MINIO_BUCKET, valueFrom: { secretKeyRef: { name: log-collector-secret, key: MINIO_BUCKET } } }
+            - { name: MINIO_ACCESS_KEY, valueFrom: { secretKeyRef: { name: log-collector-secret, key: MINIO_ACCESS_KEY } } }
+            - { name: MINIO_SECRET_KEY, valueFrom: { secretKeyRef: { name: log-collector-secret, key: MINIO_SECRET_KEY } } }
           readinessProbe:
             httpGet: { path: /health, port: 3000 }
             initialDelaySeconds: 10
