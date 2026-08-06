@@ -21,8 +21,10 @@ spec:
           ports:
             - { name: http, containerPort: 3080 }
           env:
-            - { name: MONGO_URI, valueFrom: { secretKeyRef: { name: librechat-secret, key: MONGO_URI } } }
-            - { name: PORT,      value: "3080" }
+            - { name: MONGO_URI,    valueFrom: { secretKeyRef: { name: librechat-secret, key: MONGO_URI } } }
+            - { name: JWT_SECRET,   valueFrom: { secretKeyRef: { name: librechat-secret, key: JWT_SECRET } } }
+            - { name: CREDS_KEY,    valueFrom: { secretKeyRef: { name: librechat-secret, key: CREDS_KEY } } }
+            - { name: PORT,         value: "3080" }
           readinessProbe:
             httpGet: { path: /, port: 3080 }
             initialDelaySeconds: 30
