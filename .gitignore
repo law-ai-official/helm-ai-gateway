@@ -6,19 +6,14 @@
 .idea/
 *.swp
 
-# Secrets (不要提交真实密钥)
+# Real secrets (not helm templates)
 .env
 .env.local
-*secret*.yaml
-secrets/
 values-prod.yaml
-
-# Helm
-helm/**/*.tgz
 
 # Node
 node_modules/
 npm-debug.log
 
-# Test
+# Test output
 tests/**/output/
