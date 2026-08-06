@@ -18,9 +18,12 @@ local BodyCapture = {
 
 function BodyCapture:access(conf)
   -- Stamp start time for latency; read+cache the request body.
-  -- get_raw_body buffers the body; Kong still forwards it upstream unchanged.
+  -- Pass max_body_size so Kong reads bodies that spilled to a temp file (bodies
+  -- larger than nginx client_body_buffer_size, 8KB by default). Without this arg
+  -- get_raw_body() returns nil for any body that doesn't fit the in-memory buffer.
+  -- Bodies larger than max_body_size are rejected (nil) without reading them.
   kong.ctx.shared.bc_start = ngx.now()
-  local body = kong.request.get_raw_body()
+  local body = kong.request.get_raw_body(conf.max_body_size)
   if body and body ~= "" then
     local max = conf.max_body_size
     kong.ctx.shared.req_body = (#body > max) and string.sub(body, 1, max) or body
