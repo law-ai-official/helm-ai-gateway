@@ -21,10 +21,17 @@ spec:
           env:
             - { name: KONG_DATABASE,             value: "off" }
             - { name: KONG_DECLARATIVE_CONFIG,   value: /etc/kong/kong.yml }
+            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
             - { name: KONG_PROXY_ACCESS_LOG,     value: /dev/stdout }
             - { name: KONG_ADMIN_ACCESS_LOG,     value: /dev/stdout }
             - { name: KONG_PROXY_ERROR_LOG,      value: /dev/stderr }
             - { name: KONG_ADMIN_ERROR_LOG,      value: /dev/stderr }
+            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
+            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
+            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
+            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
+            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
+            - { name: KONG_ADMIN_LISTEN,         value: "0.0.0.0:8001" }
           ports:
             - { name: http,  containerPort: 8000 }
             - { name: https, containerPort: 8443 }
