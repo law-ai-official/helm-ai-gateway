@@ -24,7 +24,7 @@ spec:
             - |
               cd /tmp &&
               npm init -y >/dev/null 2>&1 &&
-              npm install --no-save postgres minio busboy &&
+              npm install --no-save{{- if .Values.logCollector.npmRegistry }} --registry={{ .Values.logCollector.npmRegistry }}{{- end }} postgres minio busboy &&
               cp /app/app.js /tmp/app.js &&
               exec node /tmp/app.js
           ports:

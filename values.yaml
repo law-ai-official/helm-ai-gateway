@@ -120,6 +120,10 @@ logCollector:
   # valuesObject (cluster-side) so it stays out of git. Pass as ?token= or
   # Authorization: Bearer.
   viewerToken: ""
+  # npm registry for the at-boot `npm install` of app deps. Empty = npm default
+  # (registry.npmjs.org). Set to https://registry.npmmirror.com on China clusters
+  # (npmjs.org is unreachable from the mainland). Injected per-cluster.
+  npmRegistry: ""
   resources:
     requests: { cpu: 50m, memory: 128Mi }
 
