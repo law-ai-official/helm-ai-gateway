@@ -78,6 +78,9 @@ librechat:
     repository: ghcr.io/danny-avila/librechat
     tag: "latest"
     pullPolicy: IfNotPresent
+  # NewAPI token LibreChat uses to reach the gateway. Real value injected
+  # per-cluster (ArgoCD valuesObject on America, helm --set on China) - not in git.
+  newApiKey: ""
   service:
     nodePort:
       enabled: true

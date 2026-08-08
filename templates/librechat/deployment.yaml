@@ -27,9 +27,18 @@ spec:
             - { name: JWT_REFRESH_SECRET, valueFrom: { secretKeyRef: { name: librechat-secret, key: JWT_REFRESH_SECRET } } }
             - { name: PORT,         value: "3080" }
             - { name: ALLOW_REGISTRATION, value: "true" }
+            - { name: NEWAPI_KEY, valueFrom: { secretKeyRef: { name: librechat-secret, key: NEWAPI_KEY } } }
           readinessProbe:
             httpGet: { path: /, port: 3080 }
             initialDelaySeconds: 30
             periodSeconds: 10
           resources: {{- toYaml .Values.librechat.resources | nindent 12 }}
+          volumeMounts:
+            - name: librechat-config
+              mountPath: /app/librechat.yaml
+              subPath: librechat.yaml
+      volumes:
+        - name: librechat-config
+          configMap:
+            name: librechat-config
 {{- end }}

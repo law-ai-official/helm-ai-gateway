@@ -1,0 +1,33 @@
+{{- if .Values.librechat.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: librechat-config
+  namespace: {{ include "ai-gateway.namespace" . }}
+  labels: {{- include "ai-gateway.labels" . | nindent 4 }}
+data:
+  # Custom OpenAI-compatible endpoint -> in-cluster Kong -> NewAPI -> upstream.
+  # Requests go through Kong so the body-capture plugin logs them to chat_log.
+  librechat.yaml: |
+    version: 1.3.13
+    cache: true
+    endpoints:
+      custom:
+        - name: 'AI Gateway'
+          apiKey: '${NEWAPI_KEY}'
+          baseURL: 'http://kong:8000/v1'
+          models:
+            default:
+              - 'minimax-m3'
+              - 'glm-5.2'
+              - 'kimi-k3'
+              - 'deepseek-v4-pro'
+              - 'qwen-3.7-plus'
+              - 'deepseek-v4-flash'
+            fetch: false
+          titleConvo: true
+          titleModel: 'glm-5.2'
+          summarize: false
+          summaryModel: 'glm-5.2'
+          modelDisplayLabel: 'AI Gateway'
+{{- end }}
