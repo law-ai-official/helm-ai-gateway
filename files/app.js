@@ -242,6 +242,14 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // Public assets: GET /public/<key> -> stream chat-assets/public/<key> (NO token).
+  // Contained to the public/ prefix; private objects still require the token via /asset.
+  if (req.method === 'GET' && path.startsWith('/public/')) {
+    const key = decodeURIComponent(path.slice('/public/'.length));
+    if (!key || key.includes('..') || key.startsWith('/')) { res.writeHead(400); res.end('bad key'); return; }
+    return streamAsset(`minio://${BUCKET}/public/${key}`, res);
+  }
+
   // Everything below is the viewer -> requires token if configured.
   if (!authorize(req)) { res.writeHead(401); res.end('unauthorized'); return; }
 
